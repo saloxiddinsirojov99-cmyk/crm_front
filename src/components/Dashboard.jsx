@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import educationImg from '../assets/education.png';
 
 const SidebarIcon = ({ name }) => {
@@ -66,6 +67,21 @@ const Dashboard = ({ onLogout, userEmail }) => {
   const [showAddRoomSidebar, setShowAddRoomSidebar] = React.useState(false);
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = React.useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [rooms, setRooms] = useState(roomsData);
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const res = await axios.get('/_/backend/rooms');
+        if (res.data && Array.isArray(res.data)) {
+          setRooms(res.data);
+        }
+      } catch (err) {
+        console.log('Backend offline, using mock data');
+      }
+    };
+    fetchRooms();
+  }, []);
 
   const translations = {
     uz: {
@@ -421,7 +437,7 @@ const Dashboard = ({ onLogout, userEmail }) => {
 
                   {/* Rooms Grid */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
-                    {roomsData.map(room => (
+                    {rooms.map(room => (
                       <div key={room.id} className={`p-5 rounded-2xl border flex items-center justify-between group transition-colors cursor-pointer ${isDarkMode ? 'bg-[#0f172a] border-gray-700 hover:border-gray-600' : 'bg-[#f8f9fc] border-gray-50 hover:border-gray-200 hover:shadow-sm'}`}>
                         <div>
                           <h4 className={`font-bold text-[15px] mb-1.5 ${isDarkMode ? 'text-white' : 'text-[#1e2a4a]'}`}>{room.name}</h4>
