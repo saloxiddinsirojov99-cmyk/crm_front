@@ -69,30 +69,58 @@ const Dashboard = ({ onLogout, userEmail }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [rooms, setRooms] = useState(roomsData);
   const [newRoom, setNewRoom] = useState({ name: '', capacity: '' });
+  const [editingRoom, setEditingRoom] = useState(null);
 
   const handleAddRoom = async () => {
     if (!newRoom.name || !newRoom.capacity) return;
     try {
-      const res = await axios.post('/_/backend/rooms', { 
-        name: newRoom.name, 
-        capacity: parseInt(newRoom.capacity) 
-      });
-      if (res.data) {
+      if (editingRoom) {
+        // Edit mode
+        const res = await axios.put(`/_/backend/rooms/${editingRoom.id}`, {
+          name: newRoom.name,
+          capacity: parseInt(newRoom.capacity)
+        });
+        setRooms(rooms.map(r => r.id === editingRoom.id ? res.data : r));
+      } else {
+        // Add mode
+        const res = await axios.post('/_/backend/rooms', { 
+          name: newRoom.name, 
+          capacity: parseInt(newRoom.capacity) 
+        });
         setRooms([...rooms, res.data]);
-        setShowAddRoomSidebar(false);
-        setNewRoom({ name: '', capacity: '' });
       }
+      closeRoomSidebar();
     } catch (err) {
       // Mock mode fallback
-      const mockNewRoom = { 
-        id: Date.now(), 
-        name: newRoom.name, 
-        capacity: parseInt(newRoom.capacity) 
-      };
-      setRooms([...rooms, mockNewRoom]);
-      setShowAddRoomSidebar(false);
-      setNewRoom({ name: '', capacity: '' });
+      if (editingRoom) {
+        setRooms(rooms.map(r => r.id === editingRoom.id ? { ...r, name: newRoom.name, capacity: parseInt(newRoom.capacity) } : r));
+      } else {
+        setRooms([...rooms, { id: Date.now(), name: newRoom.name, capacity: parseInt(newRoom.capacity) }]);
+      }
+      closeRoomSidebar();
     }
+  };
+
+  const handleDeleteRoom = async (id) => {
+    try {
+      await axios.delete(`/_/backend/rooms/${id}`);
+      setRooms(rooms.filter(r => r.id !== id));
+    } catch (err) {
+      // Mock mode fallback
+      setRooms(rooms.filter(r => r.id !== id));
+    }
+  };
+
+  const openEditSidebar = (room) => {
+    setEditingRoom(room);
+    setNewRoom({ name: room.name, capacity: room.capacity });
+    setShowAddRoomSidebar(true);
+  };
+
+  const closeRoomSidebar = () => {
+    setShowAddRoomSidebar(false);
+    setEditingRoom(null);
+    setNewRoom({ name: '', capacity: '' });
   };
 
   useEffect(() => {
@@ -470,10 +498,16 @@ const Dashboard = ({ onLogout, userEmail }) => {
                           <p className={`text-xs font-semibold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Sig'imi: {room.capacity}</p>
                         </div>
                         <div className="flex items-center space-x-3">
-                          <button className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'text-gray-500 hover:bg-red-500/10 hover:text-red-400' : 'text-gray-400 hover:bg-red-50 hover:text-red-500'}`}>
+                          <button 
+                            onClick={() => handleDeleteRoom(room.id)}
+                            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'text-gray-500 hover:bg-red-500/10 hover:text-red-400' : 'text-gray-400 hover:bg-red-50 hover:text-red-500'}`}
+                          >
                             <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
-                          <button className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'text-gray-500 hover:bg-indigo-500/10 hover:text-indigo-400' : 'text-gray-400 hover:bg-indigo-50 hover:text-indigo-500'}`}>
+                          <button 
+                            onClick={() => openEditSidebar(room)}
+                            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'text-gray-500 hover:bg-indigo-500/10 hover:text-indigo-400' : 'text-gray-400 hover:bg-indigo-50 hover:text-indigo-500'}`}
+                          >
                             <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                           </button>
                         </div>
@@ -491,8 +525,10 @@ const Dashboard = ({ onLogout, userEmail }) => {
       {/* Right Drawer: Add Room */}
       <div className={`fixed inset-y-0 right-0 z-50 w-full sm:w-96 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${showAddRoomSidebar ? 'translate-x-0' : 'translate-x-full'} ${isDarkMode ? 'bg-[#1e293b]' : 'bg-white'}`}>
         <div className={`p-6 border-b flex items-center justify-between flex-shrink-0 ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-          <h2 className={`text-[17px] font-bold ${isDarkMode ? 'text-white' : 'text-[#1e2a4a]'}`}>Xonani qo'shish</h2>
-          <button onClick={() => setShowAddRoomSidebar(false)} className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
+          <h2 className={`text-[17px] font-bold ${isDarkMode ? 'text-white' : 'text-[#1e2a4a]'}`}>
+            {editingRoom ? 'Xonani tahrirlash' : 'Xonani qo\'shish'}
+          </h2>
+          <button onClick={closeRoomSidebar} className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
@@ -526,7 +562,7 @@ const Dashboard = ({ onLogout, userEmail }) => {
 
         <div className={`p-6 border-t flex items-center justify-end space-x-3 flex-shrink-0 ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
           <button 
-            onClick={() => setShowAddRoomSidebar(false)} 
+            onClick={closeRoomSidebar} 
             className={`px-5 py-2.5 rounded-xl font-bold text-[13px] transition-all active:scale-95 ${isDarkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
           >
             Bekor qilish
@@ -535,7 +571,7 @@ const Dashboard = ({ onLogout, userEmail }) => {
             onClick={handleAddRoom}
             className="px-6 py-2.5 bg-[#7c4dff] text-white rounded-xl font-bold text-[13px] hover:bg-indigo-600 transition-all active:scale-95 shadow-md shadow-indigo-200 dark:shadow-none"
           >
-            Saqlash
+            {editingRoom ? 'Saqlash' : 'Qo\'shish'}
           </button>
         </div>
       </div>
@@ -544,7 +580,7 @@ const Dashboard = ({ onLogout, userEmail }) => {
       {showAddRoomSidebar && (
         <div 
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity" 
-          onClick={() => setShowAddRoomSidebar(false)}
+          onClick={closeRoomSidebar}
         />
       )}
 
